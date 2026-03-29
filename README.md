@@ -2,7 +2,7 @@
 
 A middleware service that connects Slack slash commands to GitHub Actions Playwright test runs, enabling seamless test execution from Slack.
 
-## 🚀 Features
+## Features
 
 - **Slack Integration**: Receive slash commands from Slack and trigger test runs
 - **GitHub Actions**: Automatically dispatch events to run Playwright tests in CI/CD
@@ -10,7 +10,7 @@ A middleware service that connects Slack slash commands to GitHub Actions Playwr
 - **Health Monitoring**: Built-in health check endpoint
 - **TypeScript**: Fully typed codebase for better development experience
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Node.js 18+
 - A Slack App with the following scopes:
@@ -19,7 +19,7 @@ A middleware service that connects Slack slash commands to GitHub Actions Playwr
 - GitHub repository with Playwright tests
 - GitHub Personal Access Token with `repo` and `actions` permissions
 
-## 🛠️ Installation
+## Installation
 
 1. **Clone the repository:**
    ```bash
@@ -47,7 +47,7 @@ A middleware service that connects Slack slash commands to GitHub Actions Playwr
    GITHUB_PERSONAL_ACCESS_TOKEN=ghp_your_pat_here
    ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### Slack App Setup
 
@@ -76,7 +76,7 @@ A middleware service that connects Slack slash commands to GitHub Actions Playwr
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | GitHub PAT for triggering actions | Yes |
 | `PORT` | Server port (default: 3000) | No |
 
-## 🚀 Usage
+## Usage
 
 ### Development
 
@@ -103,7 +103,7 @@ npm start
 - `npm run lint` - Run ESLint
 - `npm run typecheck` - Run TypeScript type checking
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Health Check
 ```
@@ -117,14 +117,14 @@ POST /slack/command
 ```
 Handles incoming Slack slash commands and triggers GitHub Actions.
 
-## 🔧 Slack Slash Command Setup
+## Slack Slash Command Setup
 
 1. In your Slack App settings, go to **Slash Commands**
 2. Create a new command (e.g., `/test`)
 3. Set the **Request URL** to: `https://your-domain.com/slack/command`
 4. Set **Request Method** to `POST`
 
-## 🎯 GitHub Actions Integration
+## GitHub Actions Integration
 
 The service sends `repository_dispatch` events to trigger Playwright test runs. Make sure your target repository has a workflow that listens for these events:
 
@@ -141,14 +141,14 @@ on:
         default: 'smoke'
 ```
 
-## 🛡️ Security
+## Security
 
 - All Slack requests are verified using HMAC-SHA256 signatures
 - Requests older than 5 minutes are rejected
 - Environment variables containing secrets are never logged
 - The `.env` file is excluded from version control
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
@@ -163,7 +163,7 @@ src/
     └── verifySlackSignature.ts  # Slack signature verification
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/your-feature`
@@ -171,11 +171,11 @@ src/
 4. Push to the branch: `git push origin feature/your-feature`
 5. Submit a pull request
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Troubleshooting
+## Troubleshooting
 
 ### Server won't start
 - Check that all required environment variables are set
@@ -192,6 +192,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Check that the target repository has the workflow file
 - Verify the repository owner/name in the dispatch event
 
-## 📞 Support
+## Support
 
 For issues and questions, please open an issue on the GitHub repository.
