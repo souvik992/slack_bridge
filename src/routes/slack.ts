@@ -29,6 +29,15 @@ slackRouter.post(
       user_name: string;
     };
 
+    console.log("[slack/commands] request received", {
+      text,
+      channel_id,
+      user_id,
+      user_name,
+      path: req.path,
+      timestamp: new Date().toISOString(),
+    });
+
     // Acknowledge Slack immediately (must respond within 3 s)
     res.status(200).json({
       response_type: "ephemeral",
@@ -109,9 +118,21 @@ slackRouter.post("/results", async (req: Request, res: Response) => {
     };
 
   if (!slack_channel) {
+    console.error("[slack/results] missing slack_channel", req.body);
     res.status(400).json({ error: "Missing slack_channel" });
     return;
   }
+
+  console.log("[slack/results] payload", {
+    slack_channel,
+    triggered_by,
+    passed,
+    failed,
+    total,
+    duration,
+    run_url,
+    received: new Date().toISOString(),
+  });
 
   try {
     const allPassed = failed === 0;
