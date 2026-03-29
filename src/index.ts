@@ -25,6 +25,10 @@ app.use(
   })
 );
 
+app.get("/", (_req, res) => {
+  res.status(200).send("Slack-Playwright Bridge is live.");
+});
+
 app.use("/slack", slackRouter);
 app.use("/health", healthRouter);
 
