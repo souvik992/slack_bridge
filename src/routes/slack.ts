@@ -21,7 +21,14 @@ export const slackRouter = Router();
 slackRouter.post(
   "/commands",
   verifySlackSignature,
-  async (req: Request, res: Response) => {
+  (req: Request, res: Response) => {
+    // CRITICAL: Return 200 immediately, no async/await before this
+    res.status(200).json({
+      response_type: "ephemeral",
+      text: `⏳ Triggering Playwright tests… I'll post results in this channel.`,
+    });
+
+    // Extract and log (non-blocking, happens after response)
     const { text, channel_id, user_id, user_name } = req.body as {
       text: string;
       channel_id: string;
@@ -34,22 +41,16 @@ slackRouter.post(
       channel_id,
       user_id,
       user_name,
-      path: req.path,
       timestamp: new Date().toISOString(),
     });
 
-    // Acknowledge Slack immediately (must respond within 3 s)
-    res.status(200).json({
-      response_type: "ephemeral",
-      text: `⏳ Triggering Playwright tests… I'll post results in this channel.`,
-    });
-
-    // Run background workflow trigger without blocking this request
+    // Parse arguments for background task
     const args = (text ?? "").trim().split(/\s+/).filter(Boolean);
     const testSuite = args[0] ?? "all";
     const browser = args[1] ?? "chromium";
 
-    (async () => {
+    // Background: trigger GitHub Actions (completely async, no await)
+    setImmediate(async () => {
       try {
         console.log("[slack/commands] triggering GitHub Actions", {
           testSuite,
@@ -67,7 +68,7 @@ slackRouter.post(
 
         await postSlackMessage(
           channel_id,
-          `🎭 Playwright test run started by <@${user_id}>`,
+          `Test run started by <@${user_id}>`,
           buildTriggerBlocks(user_id, testSuite, browser)
         );
 
@@ -78,17 +79,17 @@ slackRouter.post(
         try {
           await postSlackMessage(
             channel_id,
-            `❌ <@${user_id}> Failed to trigger Playwright tests: ${
+            `Failed to trigger tests: ${
               err instanceof Error ? err.message : String(err)
-            }`
+            }`,
+            undefined,
+            user_id
           );
         } catch (postErr) {
-          console.error("[slack/commands] Failed to post error message to Slack:", postErr);
+          console.error("[slack/commands] Failed to post error message:", postErr);
         }
       }
-    })();
-
-    return;
+    });
   }
 );
 
