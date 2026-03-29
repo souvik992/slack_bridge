@@ -170,7 +170,8 @@ slackRouter.post("/results", async (req: Request, res: Response) => {
     await postSlackMessage(
       slack_channel,
       summary,
-      buildResultBlocks(passed, failed, total, duration, run_url, triggered_by)
+      buildResultBlocks(passed, failed, total, duration, run_url, triggered_by),
+      triggered_by
     );
 
     res.status(200).json({ ok: true });

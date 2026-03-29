@@ -4,23 +4,17 @@ import https from "https";
  * Post a message to a Slack channel using the Web API.
  * Requires the `chat:write` OAuth scope on the bot token.
  */
-export async function postSlackMessage(
-  channel: string,
-  text: string,
-  blocks?: object[]
-): Promise<void> {
+async function openDMChannel(user: string): Promise<string> {
   const token = process.env.SLACK_BOT_TOKEN;
-  if (!token) {
-    throw new Error("SLACK_BOT_TOKEN is not set");
-  }
+  if (!token) throw new Error("SLACK_BOT_TOKEN is not set");
 
-  const body = JSON.stringify({ channel, text, blocks });
+  const body = JSON.stringify({ users: user });
 
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
         hostname: "slack.com",
-        path: "/api/chat.postMessage",
+        path: "/api/conversations.open",
         method: "POST",
         headers: {
           "Content-Type": "application/json; charset=utf-8",
@@ -36,7 +30,7 @@ export async function postSlackMessage(
           if (!parsed.ok) {
             reject(new Error(`Slack API error: ${parsed.error}`));
           } else {
-            resolve();
+            resolve(parsed.channel.id);
           }
         });
       }
@@ -46,6 +40,68 @@ export async function postSlackMessage(
     req.write(body);
     req.end();
   });
+}
+
+export async function postSlackMessage(
+  channel: string,
+  text: string,
+  blocks?: object[],
+  fallbackUserId?: string
+): Promise<void> {
+  const token = process.env.SLACK_BOT_TOKEN;
+  if (!token) {
+    throw new Error("SLACK_BOT_TOKEN is not set");
+  }
+
+  const body = JSON.stringify({ channel, text, blocks });
+
+  const post = async (targetChannel: string) => {
+    return new Promise<void>((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: "slack.com",
+          path: "/api/chat.postMessage",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": Buffer.byteLength(body),
+            Authorization: `Bearer ${token}`,
+          },
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", async () => {
+            const parsed = JSON.parse(data);
+            if (!parsed.ok) {
+              reject(new Error(`Slack API error: ${parsed.error}`));
+            } else {
+              resolve();
+            }
+          });
+        }
+      );
+
+      req.on("error", reject);
+      req.write(JSON.stringify({ channel: targetChannel, text, blocks }));
+      req.end();
+    });
+  };
+
+  try {
+    await post(channel);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    if (
+      fallbackUserId &&
+      errorMessage.includes("channel_not_found")
+    ) {
+      const dmChannel = await openDMChannel(fallbackUserId);
+      await post(dmChannel);
+    } else {
+      throw err;
+    }
+  }
 }
 
 /**
