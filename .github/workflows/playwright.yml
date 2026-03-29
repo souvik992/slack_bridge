@@ -71,7 +71,7 @@ jobs:
           npx playwright test \
             --project=${{ env.BROWSER }} \
             $TEST_FILTER \
-            --reporter=json \
+            --reporter=json,html \
             2>&1 | tee playwright-output.json
           EXIT_CODE=${PIPESTATUS[0]}
           set -e
