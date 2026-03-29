@@ -42,6 +42,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Debug - Show environment variables
+        run: |
+          echo "TEST_SUITE=${{ env.TEST_SUITE }}"
+          echo "BROWSER=${{ env.BROWSER }}"
+          echo "SLACK_CHANNEL=${{ env.SLACK_CHANNEL }}"
+          echo "TRIGGERED_BY=${{ env.TRIGGERED_BY }}"
+          echo "client_payload.slack_channel=${{ github.event.client_payload.slack_channel }}"
+          echo "client_payload.triggered_by=${{ github.event.client_payload.triggered_by }}"
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -102,25 +111,45 @@ jobs:
           retention-days: 14
 
       - name: Post results to Slack
-        if: always() && env.SLACK_CHANNEL != ''
+        if: always()
         env:
           RESULTS_WEBHOOK_SECRET: ${{ secrets.RESULTS_WEBHOOK_SECRET }}
           MIDDLEWARE_URL: ${{ secrets.MIDDLEWARE_URL }}
         run: |
+          echo "DEBUG: SLACK_CHANNEL=${{ env.SLACK_CHANNEL }}"
+          echo "DEBUG: MIDDLEWARE_URL=$MIDDLEWARE_URL"
+          echo "DEBUG: TRIGGERED_BY=${{ env.TRIGGERED_BY }}"
+          
+          if [ -z "${{ env.SLACK_CHANNEL }}" ]; then
+            echo "WARNING: SLACK_CHANNEL is empty, skipping Slack notification"
+            exit 0
+          fi
+          
+          if [ -z "$MIDDLEWARE_URL" ]; then
+            echo "ERROR: MIDDLEWARE_URL secret is not set"
+            exit 1
+          fi
+          
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          curl -s -X POST "$MIDDLEWARE_URL/slack/results" \
+          echo "Calling webhook with:"
+          echo "  SLACK_CHANNEL=${{ env.SLACK_CHANNEL }}"
+          echo "  TRIGGERED_BY=${{ env.TRIGGERED_BY }}"
+          echo "  PASSED=${{ steps.run_tests.outputs.passed }}"
+          echo "  FAILED=${{ steps.run_tests.outputs.failed }}"
+
+          curl -v -X POST "$MIDDLEWARE_URL/slack/results" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $RESULTS_WEBHOOK_SECRET" \
             -d '{
-              "slack_channel":  "'"$SLACK_CHANNEL"'",
-              "triggered_by":   "'"$TRIGGERED_BY"'",
+              "slack_channel":  "'"${{ env.SLACK_CHANNEL }}"'",
+              "triggered_by":   "'"${{ env.TRIGGERED_BY }}"'",
               "passed":         ${{ steps.run_tests.outputs.passed }},
               "failed":         ${{ steps.run_tests.outputs.failed }},
               "total":          ${{ steps.run_tests.outputs.total }},
               "duration":       "'"${{ steps.run_tests.outputs.duration }}"'",
               "run_url":        "'"$RUN_URL"'"
-            }'
+            }' || echo "Webhook call failed with exit code $?"
 
       - name: Fail job if tests failed
         if: steps.run_tests.outputs.exit_code != '0'
