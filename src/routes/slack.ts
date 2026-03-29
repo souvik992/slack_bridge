@@ -44,35 +44,51 @@ slackRouter.post(
       text: `⏳ Triggering Playwright tests… I'll post results in this channel.`,
     });
 
-    // Parse optional arguments: [testSuite] [browser]
+    // Run background workflow trigger without blocking this request
     const args = (text ?? "").trim().split(/\s+/).filter(Boolean);
     const testSuite = args[0] ?? "all";
     const browser = args[1] ?? "chromium";
 
-    try {
-      // Fire GitHub Actions workflow
-      await triggerGitHubActions({
-        testSuite,
-        browser,
-        slackChannel: channel_id,
-        triggeredBy: user_id,
-      });
+    (async () => {
+      try {
+        console.log("[slack/commands] triggering GitHub Actions", {
+          testSuite,
+          browser,
+          slackChannel: channel_id,
+          triggeredBy: user_id,
+        });
 
-      // Notify the channel that tests are running
-      await postSlackMessage(
-        channel_id,
-        `🎭 Playwright test run started by <@${user_id}>`,
-        buildTriggerBlocks(user_id, testSuite, browser)
-      );
-    } catch (err) {
-      console.error("Failed to trigger GitHub Actions:", err);
-      await postSlackMessage(
-        channel_id,
-        `❌ <@${user_id}> Failed to trigger Playwright tests: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
-    }
+        await triggerGitHubActions({
+          testSuite,
+          browser,
+          slackChannel: channel_id,
+          triggeredBy: user_id,
+        });
+
+        await postSlackMessage(
+          channel_id,
+          `🎭 Playwright test run started by <@${user_id}>`,
+          buildTriggerBlocks(user_id, testSuite, browser)
+        );
+
+        console.log("[slack/commands] GitHub Actions triggered successfully");
+      } catch (err) {
+        console.error("[slack/commands] Failed to trigger GitHub Actions:", err);
+
+        try {
+          await postSlackMessage(
+            channel_id,
+            `❌ <@${user_id}> Failed to trigger Playwright tests: ${
+              err instanceof Error ? err.message : String(err)
+            }`
+          );
+        } catch (postErr) {
+          console.error("[slack/commands] Failed to post error message to Slack:", postErr);
+        }
+      }
+    })();
+
+    return;
   }
 );
 
@@ -122,6 +138,17 @@ slackRouter.post("/results", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Missing slack_channel" });
     return;
   }
+
+  console.log("[slack/results] webhook received", {
+    slack_channel,
+    triggered_by,
+    passed,
+    failed,
+    total,
+    duration,
+    run_url,
+    timestamp: new Date().toISOString(),
+  });
 
   console.log("[slack/results] payload", {
     slack_channel,
