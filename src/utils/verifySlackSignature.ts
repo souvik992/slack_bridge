@@ -42,10 +42,12 @@ export function verifySlackSignature(
       .update(sigBaseString, "utf8")
       .digest("hex");
 
-  const signaturesMatch = crypto.timingSafeEqual(
-    Buffer.from(computedSig),
-    Buffer.from(slackSignature)
-  );
+  const computedBuf = Buffer.from(computedSig);
+  const receivedBuf = Buffer.from(slackSignature);
+
+  const signaturesMatch =
+    computedBuf.length === receivedBuf.length &&
+    crypto.timingSafeEqual(computedBuf, receivedBuf);
 
   if (!signaturesMatch) {
     res.status(401).json({ error: "Invalid Slack signature" });

@@ -150,11 +150,30 @@ export function buildResultBlocks(
   total: number,
   duration: string,
   runUrl: string,
-  triggeredBy: string
+  triggeredBy: string,
+  reportUrl?: string
 ): object[] {
   const allPassed = failed === 0;
   const icon = allPassed ? "✅" : "❌";
   const status = allPassed ? "All tests passed!" : `${failed} test(s) failed`;
+
+  const buttons: object[] = [
+    {
+      type: "button",
+      text: { type: "plain_text", text: "View Run" },
+      url: runUrl,
+      action_id: "view_run",
+    },
+  ];
+
+  if (reportUrl) {
+    buttons.push({
+      type: "button",
+      text: { type: "plain_text", text: "HTML Report" },
+      url: reportUrl,
+      action_id: "view_report",
+    });
+  }
 
   return [
     {
@@ -175,14 +194,7 @@ export function buildResultBlocks(
     },
     {
       type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: { type: "plain_text", text: "View Run" },
-          url: runUrl,
-          action_id: "view_run",
-        },
-      ],
+      elements: buttons,
     },
     {
       type: "context",

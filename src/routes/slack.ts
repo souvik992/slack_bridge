@@ -123,7 +123,7 @@ slackRouter.post("/results", async (req: Request, res: Response) => {
     }
   }
 
-  const { slack_channel, triggered_by, passed, failed, total, duration, run_url } =
+  const { slack_channel, triggered_by, passed, failed, total, duration, run_url, report_url } =
     req.body as {
       slack_channel: string;
       triggered_by: string;
@@ -132,6 +132,7 @@ slackRouter.post("/results", async (req: Request, res: Response) => {
       total: number;
       duration: string;
       run_url: string;
+      report_url?: string;
     };
 
   if (!slack_channel) {
@@ -171,7 +172,7 @@ slackRouter.post("/results", async (req: Request, res: Response) => {
     await postSlackMessage(
       slack_channel,
       summary,
-      buildResultBlocks(passed, failed, total, duration, run_url, triggered_by),
+      buildResultBlocks(passed, failed, total, duration, run_url, triggered_by, report_url),
       triggered_by
     );
 

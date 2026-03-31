@@ -103,6 +103,7 @@ jobs:
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
       - name: Upload Playwright HTML report
+        id: upload_report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -148,7 +149,8 @@ jobs:
               "failed":         ${{ steps.run_tests.outputs.failed }},
               "total":          ${{ steps.run_tests.outputs.total }},
               "duration":       "'"${{ steps.run_tests.outputs.duration }}"'",
-              "run_url":        "'"$RUN_URL"'"
+              "run_url":        "'"$RUN_URL"'",
+              "report_url":     "'"${{ steps.upload_report.outputs.artifact-url }}"'"
             }' || echo "Webhook call failed with exit code $?"
 
       - name: Fail job if tests failed

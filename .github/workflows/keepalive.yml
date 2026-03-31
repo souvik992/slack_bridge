@@ -1,0 +1,27 @@
+name: Keep Bridge Alive
+
+on:
+  schedule:
+    # Ping every 10 minutes to prevent free-tier cold starts
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping health endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        env:
+          MIDDLEWARE_URL: ${{ secrets.MIDDLEWARE_URL }}
+        run: |
+          if [ -z "$MIDDLEWARE_URL" ]; then
+            echo "MIDDLEWARE_URL secret not set, skipping"
+            exit 0
+          fi
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$MIDDLEWARE_URL/health")
+          echo "Health check status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "WARNING: Bridge returned $STATUS"
+            exit 1
+          fi

@@ -124,22 +124,78 @@ Handles incoming Slack slash commands and triggers GitHub Actions.
 3. Set the **Request URL** to: `https://your-domain.com/slack/command`
 4. Set **Request Method** to `POST`
 
-## GitHub Actions Integration
+## How PalletPOS Tests and the Bridge Connect
 
-The service sends `repository_dispatch` events to trigger Playwright test runs. Make sure your target repository has a workflow that listens for these events:
+The bridge acts as the glue between Slack and Playwright tests running inside the PalletPOS GitHub repository. The full round-trip works in five steps:
+
+```
+Slack user          Bridge (this service)         GitHub Actions          PalletPOS repo
+    │                        │                           │                      │
+    │── /playwright login ──>│                           │                      │
+    │                        │── 200 OK (immediate) ──>  │                      │
+    │                        │                           │                      │
+    │                        │── repository_dispatch ──> │                      │
+    │                        │   event_type:             │                      │
+    │                        │   "playwright-test"       │                      │
+    │                        │   payload: {suite,        │                      │
+    │                        │    browser, channel,      │                      │
+    │                        │    triggered_by}          │                      │
+    │                        │                           │── runs Playwright ──>│
+    │                        │                           │   tests              │
+    │                        │                           │<── test results ─────│
+    │                        │<── POST /slack/results ───│                      │
+    │<── result message ─────│                           │                      │
+```
+
+**Step-by-step:**
+
+1. **Slack slash command** — A user runs `/playwright [suite] [browser]` (e.g. `/playwright login chromium`). Slack POSTs the payload to `POST /slack/commands` on this bridge.
+
+2. **Immediate 200 response** — The bridge replies to Slack within milliseconds (required to avoid Slack's 3-second timeout). All heavy work happens in the background via `setImmediate`.
+
+3. **GitHub `repository_dispatch`** — The bridge fires a `repository_dispatch` event against the PalletPOS repo with `event_type: "playwright-test"` and a `client_payload` containing `suite`, `browser`, `slack_channel`, and `triggered_by`. This is what wakes up the GitHub Actions workflow.
+
+4. **Playwright runs in CI** — The PalletPOS workflow picks up the event, installs Playwright, and runs the specified test suite in the specified browser. When finished, the workflow POSTs a JSON result body to `POST /slack/results` on this bridge (authenticated with `RESULTS_WEBHOOK_SECRET`).
+
+5. **Results posted to Slack** — The bridge formats the pass/fail counts, duration, and a link to the Actions run, then posts a rich Block Kit message back to the original Slack channel (or falls back to a DM if the channel can't be found).
+
+### PalletPOS workflow setup
+
+Your PalletPOS repo needs a workflow that listens for the `playwright-test` dispatch event:
 
 ```yaml
 name: Playwright Tests
 on:
   repository_dispatch:
-    types: [slack-command]
-  workflow_dispatch:
-    inputs:
-      test_type:
-        description: 'Type of test to run'
-        required: true
-        default: 'smoke'
+    types: [playwright-test]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci && npx playwright install --with-deps
+      - run: npx playwright test --project=${{ github.event.client_payload.browser }} ${{ github.event.client_payload.suite }}
+
+      - name: Post results back to bridge
+        if: always()
+        run: |
+          curl -X POST https://your-bridge-domain.com/slack/results \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.RESULTS_WEBHOOK_SECRET }}" \
+            -d '{
+              "slack_channel": "${{ github.event.client_payload.slack_channel }}",
+              "triggered_by": "${{ github.event.client_payload.triggered_by }}",
+              "passed": <passed>,
+              "failed": <failed>,
+              "total": <total>,
+              "duration": "<duration>",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }'
 ```
+
+Add `RESULTS_WEBHOOK_SECRET` to both your bridge `.env` and the PalletPOS repo secrets so the results callback is authenticated.
 
 ## Security
 
