@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(ls c:UsersPalletnowDesktopslack-playwright-bridge*.md)"
-    ]
-  }
-}
